@@ -1,9 +1,12 @@
 import 'dart:io';
 
 import 'package:camera/camera.dart';
+import 'package:faceid_mobile/preview_screen/preview_screen.dart';
 import 'package:firebase_ml_vision/firebase_ml_vision.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:image/image.dart' as ImageLib;
 import 'package:modal_bottom_sheet/modal_bottom_sheet.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
@@ -15,7 +18,7 @@ class CameraScreen extends StatefulWidget {
   }
 }
 
-enum Status { RIGHT, LEFT, SMILE, NEUTRAL, EYES_CLOSED }
+enum Status { RIGHT, LEFT, SMILE, NEUTRAL, EYES_CLOSED, GLASSES }
 
 class _CameraScreenState extends State {
   // This class is responsible for establishing a connection to the device’s camera.
@@ -25,13 +28,15 @@ class _CameraScreenState extends State {
   int selectedCameraIdx;
   Map<Status, String> imagePaths = new Map<Status, String>();
   bool isProcessing = false;
-  String successful;
   String error;
-  Status currentStatus = Status.SMILE;
+  Status currentStatus = Status.NEUTRAL;
+  // Set<Status> listOfStatus = Set.of([Status.NEUTRAL]);
+  Set<Status> listOfStatus = Set.of(Status.values);
 
   @override
   void initState() {
     super.initState();
+    // listOfStatus.addAll(Status.values);
     availableCameras().then((availableCameras) {
       availableCameras.forEach((element) {
         print(element.name);
@@ -122,6 +127,8 @@ class _CameraScreenState extends State {
         ),
       );
     }
+    // Todo : fix the camera ratio so it won't show my face as a melon
+    // Todo : make the bottom buttons transparent and stacked on the camera preview
     return AspectRatio(
       aspectRatio: controller.value.aspectRatio,
       //
@@ -227,24 +234,10 @@ class _CameraScreenState extends State {
         if (faces.length > 1) {
           setState(() {
             isProcessing = false;
-            error = "There is more than 1 face in this image !";
+            error = "There is more than 1 face !";
           });
         } else {
-          Face face = faces[0];
-          print('[leftEyeOpenProbability] ' + face.leftEyeOpenProbability.toString());
-          print('[rightEyeOpenProbability] ' + face.rightEyeOpenProbability.toString());
-          print('[headEulerAngleY] ' + face.headEulerAngleY.toString());
-          print('[headEulerAngleZ] ' + face.headEulerAngleZ?.toString());
-          print('[smilingProbability] ' + face.smilingProbability.toString());
-          print('[FACE]' + face.boundingBox.toString());
-          if (face.smilingProbability > 0.80) {
-            setState(() {
-              isProcessing = false;
-              successful = "Katd7Ek al3frit yak";
-            });
-            imagePaths[Status.SMILE] = path;
-            print('[PATH] path : ' + path);
-          }
+          _processFace(context, path, faces[0]);
         }
       } else {
         setState(() {
@@ -252,11 +245,12 @@ class _CameraScreenState extends State {
           error = "The image doesn't contain any face !";
         });
       }
-      _showDialog(context);
+      if (error != null) {
+        _showDialog(context);
+      } else {
+        _showSuccessfulToast();
+      }
     }
-    // TODO : Crop and save the image and add the path to the array
-
-    // TODO : If all the pictures are taken in all positions upload to the server with the auth user
   }
 
   void _onSwitchCamera() {
@@ -266,26 +260,15 @@ class _CameraScreenState extends State {
   }
 
   void _onCapturePressed(BuildContext context) async {
-    setState(() {
-      isProcessing = true;
-      error = null;
-      successful = null;
-    });
+    _resetState(processing: true);
     try {
       final path = join(
         // store the picture in the temp directory.
         (await getTemporaryDirectory()).path,
         '${DateTime.now()}.png',
-      );
+      ); //
       await controller.takePicture(path);
-      // TODO : Check for image conditions and positions
       _getImageAndDetectFaces(path, context);
-      // Navigator.push(
-      //   context,
-      //   MaterialPageRoute(
-      //     builder: (context) => PreviewImageScreen(imagePath: path),
-      //   ),
-      // );
     } catch (e) {
       print(e);
     }
@@ -298,6 +281,17 @@ class _CameraScreenState extends State {
     print('Error: ${e.code}\n${e.description}');
   }
 
+  void _showSuccessfulToast() {
+    Fluttertoast.showToast(
+        msg: "Successful ✔",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.CENTER,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.green,
+        textColor: Colors.white,
+        fontSize: 16.0);
+  }
+
   void _showDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -308,17 +302,21 @@ class _CameraScreenState extends State {
               mainAxisAlignment: MainAxisAlignment.center, //Center Row contents horizontally,
               crossAxisAlignment: CrossAxisAlignment.center, //Center Row contents vertically,
               children: [
-                isProcessing ? CircularProgressIndicator() : SizedBox.shrink(),
-                successful != null ? Text(successful) : SizedBox.shrink(),
-                error != null ? Text(error) : SizedBox.shrink(),
+                error != null
+                    ? Text(
+                        error,
+                        style: TextStyle(color: Colors.red),
+                      )
+                    : SizedBox.shrink(),
               ],
             ),
             actions: [
               FlatButton(
-                child: Text("Done"),
+                child: Text("Done", style: TextStyle(color: Colors.black)),
                 onPressed: isProcessing
                     ? null
                     : () {
+                        _resetState();
                         Navigator.of(context).pop();
                       },
               ),
@@ -343,11 +341,12 @@ class _CameraScreenState extends State {
                 itemExtent: 100.0,
                 itemBuilder: (BuildContext context, int index) {
                   Status key = imagePaths.keys.elementAt(index);
+                  String label = key.toString().split('.')[1].replaceAll('_', ' ').toLowerCase();
                   return Container(
                       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       child: ListTile(
                         leading: Image.file(File(imagePaths[key])),
-                        title: Text(key.toString().split('.')[1]),
+                        title: Text(label[0].toUpperCase() + label.substring(1)),
                         trailing: FlatButton(
                           child: Text(
                             "Remove",
@@ -355,7 +354,9 @@ class _CameraScreenState extends State {
                           ),
                           onPressed: () {
                             imagePaths.remove(key);
-                            if (imagePaths.isEmpty) Navigator.of(context).pop();
+                            listOfStatus.add(key);
+                            currentStatus = listOfStatus.first;
+                            Navigator.of(context).pop();
                           },
                         ),
                         contentPadding: EdgeInsets.all(16.0),
@@ -379,8 +380,131 @@ class _CameraScreenState extends State {
         return "Try to be neutral 😐";
       case Status.EYES_CLOSED:
         return "Now close your eyes 😑";
+      case Status.GLASSES:
+        return "Now put/remove glasses 🤓";
       default:
-        return "Give us a big smile 😀";
+        return "All done for now ✅";
     }
+  }
+
+  void _processFace(BuildContext context, String path, Face face) {
+    {
+      setState(() {
+        isProcessing = false;
+      });
+      print("currentStatus " + currentStatus.toString());
+      switch (currentStatus) {
+        case Status.SMILE:
+          {
+            print('[smilingProbability] ' + face.smilingProbability.toString());
+            if (face.smilingProbability > 0.80) {
+              setState(() {
+                isProcessing = false;
+              });
+            }
+          }
+          break;
+        case Status.NEUTRAL:
+          {
+            if (face.smilingProbability > 0.10) {
+              setState(() {
+                error = "Try not to laugh !";
+              });
+            }
+            print('[smilingProbability] ' + face.smilingProbability.toString());
+            break;
+          }
+        case Status.RIGHT:
+          {
+            if (face.headEulerAngleY > -15) {
+              setState(() {
+                error = "Look at your right !";
+              });
+            }
+            print('[headEulerAngleY] ' + face.headEulerAngleY.toString());
+            break;
+          }
+        case Status.LEFT:
+          {
+            if (face.headEulerAngleY < 15) {
+              setState(() {
+                error = "Look at your left !";
+              });
+            }
+            print('[headEulerAngleY] ' + face.headEulerAngleY.toString());
+            break;
+          }
+        case Status.EYES_CLOSED:
+          {
+            if (face.leftEyeOpenProbability > 0.1 || face.rightEyeOpenProbability > 0.1) {
+              setState(() {
+                error = "Close your eyes !";
+              });
+            }
+            print('[leftEyeOpenProbability] ' + face.leftEyeOpenProbability.toString());
+            print('[rightEyeOpenProbability] ' + face.rightEyeOpenProbability.toString());
+            break;
+          }
+        case Status.GLASSES:
+          {
+            setState(() {
+              isProcessing = false;
+            });
+            break;
+          }
+        default:
+          {
+            setState(() {
+              isProcessing = false;
+              error = "Current status is not valid";
+            });
+            break;
+          }
+      }
+      if (error == null) {
+        imagePaths[currentStatus] = path;
+        _cropAndSaveImage(path, face);
+        listOfStatus.remove(currentStatus);
+        if (listOfStatus.isNotEmpty) {
+          setState(() {
+            currentStatus = listOfStatus.first;
+          });
+        } else {
+          currentStatus = null;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PreviewImageScreen(imagePaths: imagePaths.values.toList()),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _resetState({processing = false}) {
+    setState(() {
+      isProcessing = processing;
+      error = null;
+    });
+  }
+
+  void _cropAndSaveImage(String path, Face face) {
+    int trashHold = 20;
+    ImageLib.Image image = ImageLib.decodeImage(File(path).readAsBytesSync());
+    // The camera plugin produces images in landscape mode always, and for a photo taken in Portrait,
+    // it sets hasOrientation true and orientation 6 in the EXIF header
+    // https://github.com/brendan-duncan/image/issues/200#issuecomment-625481075
+    print(
+        "f ${face.boundingBox.topLeft.dy} ${face.boundingBox.topLeft.dx} ${face.boundingBox.width} ${face.boundingBox.height}");
+
+    ImageLib.Image copy = ImageLib.copyRotate(
+        ImageLib.copyCrop(image, face.boundingBox.topLeft.dy.toInt(), face.boundingBox.topLeft.dx.toInt(),
+            face.boundingBox.width.toInt(), face.boundingBox.height.toInt()),
+        -90);
+
+    // Save the thumbnail as a PNG.
+    File(path)..writeAsBytesSync(ImageLib.encodePng(copy));
+    print(path);
   }
 }
