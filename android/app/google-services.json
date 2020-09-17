@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "761833288005",
+    "firebase_url": "https://face-id-f70e3.firebaseio.com",
+    "project_id": "face-id-f70e3",
+    "storage_bucket": "face-id-f70e3.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:761833288005:android:ed1cf304a3f1ac1b7e4e2c",
+        "android_client_info": {
+          "package_name": "com.naitcherif.faceid_mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "761833288005-f03uus4f5rstf37063f3g9jgf4ctvkej.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCEID5bssSQhbM-5Cu2j_EJmKlgcUz-4w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "761833288005-f03uus4f5rstf37063f3g9jgf4ctvkej.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
