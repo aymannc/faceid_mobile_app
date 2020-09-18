@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:camera/camera.dart';
-import 'package:faceid_mobile/preview_screen/preview_screen.dart';
+import 'package:faceid_mobile/screens/preview_screen.dart';
 import 'package:firebase_ml_vision/firebase_ml_vision.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -30,8 +30,10 @@ class _CameraScreenState extends State {
   bool isProcessing = false;
   String error;
   Status currentStatus = Status.NEUTRAL;
-  // Set<Status> listOfStatus = Set.of([Status.NEUTRAL]);
-  Set<Status> listOfStatus = Set.of(Status.values);
+
+  Set<Status> listOfStatus = Set.of([Status.NEUTRAL]);
+
+  // Set<Status> listOfStatus = Set.of(Status.values);
 
   @override
   void initState() {
@@ -62,7 +64,7 @@ class _CameraScreenState extends State {
       await controller.dispose();
     }
 
-    controller = CameraController(cameraDescription, ResolutionPreset.medium);
+    controller = CameraController(cameraDescription, ResolutionPreset.low, enableAudio: false);
 
     // If the controller is updated then update the UI.
     controller.addListener(() {
@@ -127,6 +129,7 @@ class _CameraScreenState extends State {
         ),
       );
     }
+    print('AspectRatio' + controller.value.aspectRatio.toString());
     // Todo : fix the camera ratio so it won't show my face as a melon
     // Todo : make the bottom buttons transparent and stacked on the camera preview
     return AspectRatio(
@@ -489,22 +492,20 @@ class _CameraScreenState extends State {
     });
   }
 
+  // The camera plugin produces images in landscape mode always, and for a photo taken in Portrait,
+  // it sets hasOrientation true and orientation 6 in the EXIF header
+  // https://github.com/brendan-duncan/image/issues/200#issuecomment-625481075
   void _cropAndSaveImage(String path, Face face) {
-    int trashHold = 20;
-    ImageLib.Image image = ImageLib.decodeImage(File(path).readAsBytesSync());
-    // The camera plugin produces images in landscape mode always, and for a photo taken in Portrait,
-    // it sets hasOrientation true and orientation 6 in the EXIF header
-    // https://github.com/brendan-duncan/image/issues/200#issuecomment-625481075
-    print(
-        "f ${face.boundingBox.topLeft.dy} ${face.boundingBox.topLeft.dx} ${face.boundingBox.width} ${face.boundingBox.height}");
-
-    ImageLib.Image copy = ImageLib.copyRotate(
-        ImageLib.copyCrop(image, face.boundingBox.topLeft.dy.toInt(), face.boundingBox.topLeft.dx.toInt(),
-            face.boundingBox.width.toInt(), face.boundingBox.height.toInt()),
-        -90);
-
-    // Save the thumbnail as a PNG.
-    File(path)..writeAsBytesSync(ImageLib.encodePng(copy));
+    final ImageLib.Image capturedImage = ImageLib.decodeImage(File(path).readAsBytesSync());
+    print(" boundingBox "
+        "${face.boundingBox.topLeft.dy} "
+        "${face.boundingBox.topLeft.dx} "
+        "${face.boundingBox.width} "
+        "${face.boundingBox.height}");
+    final ImageLib.Image copy = ImageLib.copyCrop(capturedImage, face.boundingBox.topLeft.dy.toInt(),
+        face.boundingBox.topLeft.dx.toInt(), face.boundingBox.width.toInt(), face.boundingBox.height.toInt());
+    final ImageLib.Image orientedImage = ImageLib.bakeOrientation(copy);
+    File(path)..writeAsBytesSync(ImageLib.encodePng(orientedImage));
     print(path);
   }
 }

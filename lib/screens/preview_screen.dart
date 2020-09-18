@@ -2,8 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:http/http.dart' as http;
+
+import 'confirmation_page.dart';
 
 class PreviewImageScreen extends StatefulWidget {
   final List<String> imagePaths;
@@ -25,30 +26,20 @@ class _PreviewImageScreenState extends State<PreviewImageScreen> {
             padding: EdgeInsets.only(right: 20.0),
             child: GestureDetector(
               onTap: () async {
-
                 // Todo : Show a spinner
-
                 var res = await _shareImages();
                 if (res.containsKey('error')) {
                   print(res['error']);
-                  Fluttertoast.showToast(
-                      msg: "Error !",
-                      toastLength: Toast.LENGTH_SHORT,
-                      gravity: ToastGravity.CENTER,
-                      timeInSecForIosWeb: 1,
-                      backgroundColor: Colors.red,
-                      textColor: Colors.white,
-                      fontSize: 16.0);
+                  // ToDo : show copertino alert
                 } else if (res.containsKey('uploaded_images')) {
                   // Todo : Go to Home page or something
-                  Fluttertoast.showToast(
-                      msg: "Successful ✔",
-                      toastLength: Toast.LENGTH_SHORT,
-                      gravity: ToastGravity.BOTTOM,
-                      timeInSecForIosWeb: 1,
-                      backgroundColor: Colors.green,
-                      textColor: Colors.white,
-                      fontSize: 16.0);
+                  Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => ConfirmationScreen(
+                                response: res,
+                              )),
+                      (Route<dynamic> route) => false);
                 }
               },
               child: Icon(
@@ -87,21 +78,32 @@ class _PreviewImageScreenState extends State<PreviewImageScreen> {
 
   Future<Map<String, dynamic>> _shareImages() async {
     var request = http.MultipartRequest('POST', Uri.parse('http://10.0.2.2:5000/upload_images'));
+    // Todo : Use the auth user
     request.fields['username'] = 'nait_cherif';
+    print('len of paths ${widget.imagePaths.length}');
     for (var path in widget.imagePaths) {
+      print('path $path');
       request.files.add(await http.MultipartFile.fromPath('files', path));
     }
     final streamedResponse = await request.send();
     var response = await http.Response.fromStream(streamedResponse);
     Map<String, dynamic> responseData = jsonDecode(response.body);
-    // try {
-    //   // code that might throw an exception
-    // }
-    // on Key {
-    //   // code for handling exception
-    // }
-    // responseData.keys
-
     return responseData;
+
+  }
+  showAlertDialog(BuildContext context){
+    AlertDialog alert=AlertDialog(
+      content: new Row(
+        children: [
+          CircularProgressIndicator(),
+          Container(margin: EdgeInsets.only(left: 5),child:Text("Loading" )),
+        ],),
+    );
+    showDialog(barrierDismissible: false,
+      context:context,
+      builder:(BuildContext context){
+        return alert;
+      },
+    );
   }
 }
