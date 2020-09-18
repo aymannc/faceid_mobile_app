@@ -30,11 +30,12 @@ dependencies:
   camera: ^0.5.8+5
   path_provider: ^1.6.14
   path: ^1.6.4
-  esys_flutter_share: ^1.0.2
   firebase_ml_vision: ^0.9.6+2
   fluttertoast: ^7.1.1
   modal_bottom_sheet: ^0.2.0+1
   http: ^0.12.2
+  flutter_exif_rotation: ^0.2.7
+
 
 
 dev_dependencies:
