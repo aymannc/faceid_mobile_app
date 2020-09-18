@@ -23,7 +23,7 @@ class _FaceIDCameraState extends State<FaceIDCamera> {
   var processing = true;
 
   Future<Map<String, dynamic>> _uploadImage() async {
-    String url = 'http://192.168.1.102:5000/facial_recognition';
+    String url = 'http://10.0.2.2:5000/facial_recognition';
     var request = http.MultipartRequest(
       'POST',
       Uri.parse(url),
