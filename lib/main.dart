@@ -1,45 +1,66 @@
-/*
- * Copyright (c) 2019 Razeware LLC
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * Notwithstanding the foregoing, you may not use, copy, modify, merge, publish,
- * distribute, sublicense, create a derivative work, and/or sell copies of the
- * Software in any work that is designed, intended, or marketed for pedagogical or
- * instructional purposes related to programming, coding, application development,
- * or information technology.  Permission for such use, copying, modification,
- * merger, publication, distribution, sublicensing, creation of derivative works,
- * or sale is expressly withheld.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:faceid_mobile/home_page.dart';
+import 'dart:convert' show ascii, base64, json, utf8;
+import 'package:faceid_mobile/welcome_page.dart';
 
-import 'camera_screen/camera_screen.dart';
 
-class CameraApp extends StatelessWidget {
+// Initializing the secure storage for state management
+final storage = FlutterSecureStorage();
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+
+  Future<String> get logged async {
+    var jwt = await storage.read(key: "jwt");
+    if (jwt == null) return "";
+    return jwt;
+  }
+
+  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: CameraScreen(),
+      title: 'Flutter Demo',
+      theme: ThemeData(
+        primarySwatch: Colors.orange,
+      ),
+      home: FutureBuilder(
+        future: logged,
+        builder: (context, payload) {
+          if (!payload.hasData) return CircularProgressIndicator();
+          if (payload.data != "") {
+            print("[Befor Splitted JWT]: " + payload.toString());
+            var jwt = payload.data.toString().split(" ")[1].split(".");
+            print("[Splitted JWT]: " + jwt[1]);
+            print("[JWT Lenght]: " + jwt.length.toString());
+            if (jwt.length != 3) {
+              // return to the login Page
+              return WelcomePage();
+            } else {
+              var decodedJwt = json.decode(
+                  utf8.decode(base64.decode(base64.normalize(jwt[1]))));
+              print("[Decoded JWT]: " + decodedJwt.toString());
+              if (DateTime.fromMillisecondsSinceEpoch(decodedJwt["exp"] * 1000)
+                  .isAfter(DateTime.now())) {
+                //return to home page
+                return HomePage(payload.data, decodedJwt);
+              } else {
+                // return to the login Page
+                storage.delete(key: 'jwt');
+                return WelcomePage();
+              }
+            }
+          } else {
+            // return to the login Page
+            return WelcomePage();
+          }
+        },
+      ),
     );
   }
 }
-
-void main() => runApp(CameraApp());
-
