@@ -4,9 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'file:///C:/Users/hp/Desktop/faceid_mobile_app/lib/login/home_page.dart';
-import 'faceIDCamera.dart';
 
-const SERVER_IP = 'http://192.168.8.104:8083';
+const SERVER_IP = 'http://10.0.0.2:8083';
 final storage = FlutterSecureStorage();
 
 class LoginPage extends StatefulWidget {
@@ -18,6 +17,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
 
   final TextEditingController _passwordController = TextEditingController();
+  var loginPressed = false;
 
   void displayDialog(context, title, text) => showDialog(
         context: context,
@@ -25,13 +25,13 @@ class _LoginPageState extends State<LoginPage> {
             AlertDialog(title: Text(title), content: Text(text)),
       );
 
-  Future<String> attemptLogIn(String username, String password) async {
+  Future<bool> attemptLogIn(String username, String password) async {
     var res = await http.post("$SERVER_IP/login",
         body: jsonEncode(
             <String, String>{'username': username, 'password': password}));
     print("[res] : " + res.headers['authorization']);
-    if (res.statusCode == 200) return res.headers['authorization'];
-    return null;
+    print('Status : ' + res.statusCode.toString());
+    return (res.statusCode == 200) ? true : false;
   }
 
   Widget _title() {
@@ -51,18 +51,25 @@ class _LoginPageState extends State<LoginPage> {
   Widget _submitButton() {
     return InkWell(
       onTap: () async {
+        setState(() {
+          loginPressed = true;
+        });
         var username = _emailController.text;
         var password = _passwordController.text;
         print("[username] : " + username);
         print("[password] : " + password);
-        var jwt = await attemptLogIn(username, password);
-        if (jwt != null) {
-          storage.write(key: "jwt", value: jwt);
+        var logged = await attemptLogIn(username, password);
+        print('Logged : ' + logged.toString());
+        if (logged) {
+          storage.write(key: "username", value: username);
           // TODO : decode JwtTocken and store it to the secureStorage
+          Navigator.of(context).pop();
           Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => HomePage.fromBase64(jwt)));
+            context,
+            MaterialPageRoute(
+              builder: (context) => HomePage(username),
+            ),
+          );
         } else {
           displayDialog(context, "An Error Occurred",
               "No account was found matching that username and password");
@@ -143,12 +150,18 @@ class _LoginPageState extends State<LoginPage> {
                 SizedBox(
                   height: 80,
                 ),
-                _entryField("Email"),
+                _entryField("Username"),
                 _entryField("Password", isPassword: true),
                 SizedBox(
                   height: 40,
                 ),
-                _submitButton(),
+                (loginPressed)
+                    ? CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Colors.orange,
+                        ),
+                      )
+                    : _submitButton(),
               ],
             ),
           ),

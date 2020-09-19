@@ -1,5 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:faceid_mobile/login/home_page.dart';
+import 'package:faceid_mobile/login/login_page.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:toast/toast.dart';
 import 'package:intl/intl.dart';
 
 import 'package:flutter/material.dart';
@@ -16,14 +20,17 @@ class FaceIDCamera extends StatefulWidget {
 }
 
 class _FaceIDCameraState extends State<FaceIDCamera> {
+  final storage = FlutterSecureStorage();
+
   List<CameraDescription> cameras;
   CameraController cameraController;
   var username = '';
   var userImagePath;
   var processing = true;
+  var nbrEssai = 3;
 
   Future<Map<String, dynamic>> _uploadImage() async {
-    String url = 'http://10.0.2.2:5000/facial_recognition';
+    String url = 'http://10.0.0.2:5000/facial_recognition';
     var request = http.MultipartRequest(
       'POST',
       Uri.parse(url),
@@ -37,7 +44,8 @@ class _FaceIDCameraState extends State<FaceIDCamera> {
     return data;
   }
 
-  void _getImageAndDetectFaces(String path, BuildContext context) async {
+  Future<void> _getImageAndDetectFaces(
+      String path, BuildContext context) async {
     final image = FirebaseVisionImage.fromFilePath(path);
     final faceDetector = FirebaseVision.instance
         .faceDetector(FaceDetectorOptions(enableClassification: true));
@@ -99,81 +107,131 @@ class _FaceIDCameraState extends State<FaceIDCamera> {
     super.dispose();
   }
 
+  Widget _showDialog(BuildContext context) {
+    return AlertDialog(
+      content: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        //Center Row contents horizontally,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        //Center Row contents vertically,
+        children: [
+          Text('Nombre de tentatives est expirés !'),
+        ],
+      ),
+      actions: [
+        FlatButton(
+          child: Text(
+            "OK",
+            style: TextStyle(color: Colors.white),
+          ),
+          color: Colors.orange,
+          onPressed: () {
+            Navigator.of(context).pop();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => LoginPage(),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(),
       body: (cameraController != null)
-          ? Column(
-              children: [
-                (userImagePath == null)
-                    ? AspectRatio(
-                        aspectRatio: cameraController.value.aspectRatio,
-                        child: CameraPreview(cameraController),
-                      )
-                    : Image.file(File(userImagePath)),
-                SizedBox(
-                  height: 20,
-                ),
-                processing
-                    ? FloatingActionButton(
-                        child: Icon(
-                          Icons.camera,
-                          color: Colors.white,
-                        ),
-                        backgroundColor: Colors.black,
-                        onPressed: () async {
-                          try {
-                            // Construct the path where the image should be saved using the path package.
-                            DateTime now = DateTime.now();
-                            String formattedDate =
-                                DateFormat('yyyy_MM_dd_HH_mm_ss').format(now);
-                            final path = join(
-                              (await getTemporaryDirectory()).path,
-                              '$formattedDate.png',
-                            );
-                            // Attempt to take a picture and log where it's been saved.
-                            await cameraController.takePicture(path);
-                            setState(() {
-                              processing = false;
-                            });
-                            setState(() {
-                              userImagePath = path;
-                              print(path);
-                            });
-                            await _getImageAndDetectFaces(path, context);
-                            var res = await _uploadImage();
-                            print('Res : $res');
-                            setState(() {
-                              if (res['response'] != null)
-                                username = 'Hello ' +
-                                    res['response'][0]['username'] +
-                                    ' !';
-                              else
-                                username = 'aucun visage n\'est détécté';
-                              print('Username : $username');
-                            });
-                          } catch (e) {
-                            print(e);
-                          }
-                        })
-                    : (username == '')
-                        ? CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.blue,
-                            ),
+          ? (nbrEssai > 0)
+              ? Column(
+                  children: [
+                    (userImagePath == null)
+                        ? AspectRatio(
+                            aspectRatio: cameraController.value.aspectRatio,
+                            child: CameraPreview(cameraController),
                           )
-                        : Text(''),
-                SizedBox(
-                  height: 20,
-                ),
-                Text(username.toString()),
-              ],
-            )
+                        : Image.file(File(userImagePath)),
+                    SizedBox(
+                      height: 20,
+                    ),
+                    FloatingActionButton(
+                      child: processing
+                          ? Icon(
+                              Icons.camera,
+                              color: Colors.white,
+                            )
+                          : CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.orange,
+                              ),
+                            ),
+                      backgroundColor: Colors.black,
+                      onPressed: () async {
+                        try {
+                          // Construct the path where the image should be saved using the path package.
+                          DateTime now = DateTime.now();
+                          String formattedDate =
+                              DateFormat('yyyy_MM_dd_HH_mm_ss').format(now);
+                          final path = join(
+                            (await getTemporaryDirectory()).path,
+                            '$formattedDate.png',
+                          );
+                          // Attempt to take a picture and log where it's been saved.
+                          await cameraController.takePicture(path);
+                          setState(() {
+                            processing = false;
+                          });
+                          setState(() {
+                            userImagePath = path;
+                            print(path);
+                          });
+                          await _getImageAndDetectFaces(path, context);
+                          var res = await _uploadImage();
+                          print('Res : $res');
+                          setState(() {
+                            if (res['response'] != null) {
+                              username = res['response'][0]['username'];
+                              print('Hello $username');
+                              storage.write(key: "username", value: username);
+                              // TODO : decode JwtTocken and store it to the secureStorage
+                              Navigator.of(context).pop();
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => HomePage(username),
+                                ),
+                              );
+                            } else {
+                              processing = true;
+                              userImagePath = null;
+                              nbrEssai--;
+                              if (nbrEssai != 0)
+                                Toast.show(
+                                  "Authentication failed, try again !",
+                                  context,
+                                  duration: Toast.LENGTH_LONG,
+                                  gravity: Toast.CENTER,
+                                );
+                            }
+                          });
+                        } catch (e) {
+                          print(e);
+                        }
+                      },
+                    ),
+                    SizedBox(
+                      height: 10,
+                    ),
+                    Text('$nbrEssai tentative(s) restées'),
+                  ],
+                )
+              : _showDialog(context)
           : Center(
               child: CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  Colors.blue,
+                  Colors.orange,
                 ),
               ),
             ),

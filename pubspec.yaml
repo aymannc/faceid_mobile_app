@@ -36,6 +36,7 @@ dependencies:
   http: ^0.12.2
   flutter_exif_rotation: ^0.2.7
   flutter_secure_storage:
+  toast:
 
 
 

@@ -1,36 +1,47 @@
+import 'package:faceid_mobile/login/welcome_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'dart:convert' show ascii, base64, json, utf8;
-import 'package:http/http.dart' as http;
-
-
-const SERVER_IP = 'http://192.168.1.167:5000';
 
 class HomePage extends StatelessWidget {
-  HomePage(this.jwt, this.payload);
+  final String username;
+  final storage = FlutterSecureStorage();
 
-  factory HomePage.fromBase64(String jwt) =>
-      HomePage(
-          jwt,
-          json.decode(
-              utf8.decode(
-                  base64.decode(base64.normalize(jwt.split(" ")[1]))
-              )
-          )
-      );
+  HomePage(this.username);
 
-  final String jwt;
-  final Map<String, dynamic> payload;
 
   @override
-  Widget build(BuildContext context) =>
-      Scaffold(
-        appBar: AppBar(title: Text("Secret Data Screen")),
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(
+          title: Text("Home Page"),
+        ),
         body: Center(
-            child:
-            Column(children: <Widget>[
-              Text("the user id is : ${payload['sub']}"),
-            ],)
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Text("Welcome $username"),
+              SizedBox(
+                height: 20,
+              ),
+              FlatButton(
+                child: Text(
+                  "Logout",
+                  style: TextStyle(color: Colors.white),
+                ),
+                color: Colors.orange,
+                onPressed: () {
+                  storage.delete(key: 'username');
+                  Navigator.of(context).pop();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => WelcomePage(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       );
 }
