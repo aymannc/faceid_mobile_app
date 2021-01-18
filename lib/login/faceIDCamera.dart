@@ -60,7 +60,6 @@ class _FaceIDCameraState extends State<FaceIDCamera> {
   }
 
   void _cropAndSaveImage(String path, Face face) {
-    int trashHold = 20;
     ImageLib.Image image = ImageLib.decodeImage(File(path).readAsBytesSync());
     print(
         "f ${face.boundingBox.topLeft.dy} ${face.boundingBox.topLeft.dx} ${face.boundingBox.width} ${face.boundingBox.height}");
@@ -141,7 +140,7 @@ class _FaceIDCameraState extends State<FaceIDCamera> {
                               userImagePath = path;
                               print(path);
                             });
-                            await _getImageAndDetectFaces(path, context);
+                             _getImageAndDetectFaces(path, context);
                             var res = await _uploadImage();
                             print('Res : $res');
                             setState(() {

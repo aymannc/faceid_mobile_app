@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:faceid_mobile/screens/preview_screen.dart';
+import 'package:faceid_mobile/utils/utils.dart' as Utils;
 import 'package:firebase_ml_vision/firebase_ml_vision.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +32,7 @@ class _CameraScreenState extends State {
   String error;
   Status currentStatus = Status.NEUTRAL;
 
+  //
   Set<Status> listOfStatus = Set.of([Status.NEUTRAL]);
 
   // Set<Status> listOfStatus = Set.of(Status.values);
@@ -64,7 +66,7 @@ class _CameraScreenState extends State {
       await controller.dispose();
     }
 
-    controller = CameraController(cameraDescription, ResolutionPreset.low, enableAudio: false);
+    controller = CameraController(cameraDescription, ResolutionPreset.high, enableAudio: false);
 
     // If the controller is updated then update the UI.
     controller.addListener(() {
@@ -129,8 +131,6 @@ class _CameraScreenState extends State {
         ),
       );
     }
-    print('AspectRatio' + controller.value.aspectRatio.toString());
-    // Todo : fix the camera ratio so it won't show my face as a melon
     // Todo : make the bottom buttons transparent and stacked on the camera preview
     return AspectRatio(
       aspectRatio: controller.value.aspectRatio,
@@ -173,7 +173,7 @@ class _CameraScreenState extends State {
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       )
                     : Icon(Icons.camera),
-                backgroundColor: Colors.black,
+                backgroundColor: Colors.orange,
                 onPressed: isProcessing
                     ? null
                     : () {
@@ -193,7 +193,6 @@ class _CameraScreenState extends State {
 
     CameraDescription selectedCamera = cameras[selectedCameraIdx];
     CameraLensDirection lensDirection = selectedCamera.lensDirection;
-    print('lensDirection' + lensDirection.toString());
     return Align(
       alignment: Alignment.centerLeft,
       child: FlatButton.icon(
@@ -249,7 +248,7 @@ class _CameraScreenState extends State {
         });
       }
       if (error != null) {
-        _showDialog(context);
+        Utils.showErrorDialog(context, error, () => _resetState());
       } else {
         _showSuccessfulToast();
       }
@@ -295,51 +294,16 @@ class _CameraScreenState extends State {
         fontSize: 16.0);
   }
 
-  void _showDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(builder: (context, setState) {
-          return AlertDialog(
-            content: Row(
-              mainAxisAlignment: MainAxisAlignment.center, //Center Row contents horizontally,
-              crossAxisAlignment: CrossAxisAlignment.center, //Center Row contents vertically,
-              children: [
-                error != null
-                    ? Text(
-                        error,
-                        style: TextStyle(color: Colors.red),
-                      )
-                    : SizedBox.shrink(),
-              ],
-            ),
-            actions: [
-              FlatButton(
-                child: Text("Done", style: TextStyle(color: Colors.black)),
-                onPressed: isProcessing
-                    ? null
-                    : () {
-                        _resetState();
-                        Navigator.of(context).pop();
-                      },
-              ),
-            ],
-          );
-        });
-      },
-    );
-  }
-
   void _showTheModal(BuildContext context) {
     showCupertinoModalBottomSheet(
       context: context,
-      builder: (context, scrollController) => Material(
+      builder: (context) => Material(
         child: CupertinoPageScaffold(
           navigationBar: CupertinoNavigationBar(leading: Container(), middle: Text('Edit taken images')),
           child: SafeArea(
             bottom: false,
             child: ListView.builder(
-                controller: scrollController,
+                controller: ModalScrollController.of(context),
                 itemCount: imagePaths.length,
                 itemExtent: 100.0,
                 itemBuilder: (BuildContext context, int index) {
@@ -374,17 +338,17 @@ class _CameraScreenState extends State {
   String _getStatusLabel() {
     switch (currentStatus) {
       case Status.SMILE:
-        return "Give us a smile 😊";
+        return "Give us a smile 😀";
       case Status.RIGHT:
         return "Look right ➡";
       case Status.LEFT:
         return "Look left ⬅";
       case Status.NEUTRAL:
-        return "Try to be neutral 😐";
+        return "Try to be neutral 🙂";
       case Status.EYES_CLOSED:
-        return "Now close your eyes 😑";
+        return "Now close your eyes ";
       case Status.GLASSES:
-        return "Now put/remove glasses 🤓";
+        return "Now put/remove glasses 👓 ";
       default:
         return "All done for now ✅";
     }
@@ -400,18 +364,18 @@ class _CameraScreenState extends State {
         case Status.SMILE:
           {
             print('[smilingProbability] ' + face.smilingProbability.toString());
-            if (face.smilingProbability > 0.80) {
+            if (face.smilingProbability < 0.80) {
               setState(() {
-                isProcessing = false;
+                error = "You're not smiling  😊";
               });
             }
           }
           break;
         case Status.NEUTRAL:
           {
-            if (face.smilingProbability > 0.10) {
+            if (face.smilingProbability > 0.30) {
               setState(() {
-                error = "Try not to laugh !";
+                error = "Try not to laugh ! 🙂";
               });
             }
             print('[smilingProbability] ' + face.smilingProbability.toString());
@@ -419,9 +383,9 @@ class _CameraScreenState extends State {
           }
         case Status.RIGHT:
           {
-            if (face.headEulerAngleY > -15) {
+            if (face.headEulerAngleY < 15) {
               setState(() {
-                error = "Look at your right !";
+                error = "Look at your right ! ➡";
               });
             }
             print('[headEulerAngleY] ' + face.headEulerAngleY.toString());
@@ -429,9 +393,9 @@ class _CameraScreenState extends State {
           }
         case Status.LEFT:
           {
-            if (face.headEulerAngleY < 15) {
+            if (face.headEulerAngleY > -15) {
               setState(() {
-                error = "Look at your left !";
+                error = "Look at your left ⬅ !";
               });
             }
             print('[headEulerAngleY] ' + face.headEulerAngleY.toString());
